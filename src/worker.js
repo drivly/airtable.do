@@ -167,7 +167,7 @@ export default {
 
       await env.STORAGE.delete(`challenge:${state}`)
 
-      return json({ success: true })
+      return Response.redirect(`https://${hostname}/${namespace}`)
     }
 
     if (!config) {
