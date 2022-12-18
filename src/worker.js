@@ -48,7 +48,7 @@ export default {
 
     let config = await env.STORAGE.get(`config:namespaces:${namespace}`, { type: 'json' })
 
-    const clientId = '89fed9be-0b10-4c74-8d30-731592283ea5'
+    const clientID = hostname == 'airtable.do' ? 'b356afa0-f7c6-4dbe-bafe-a738c5b9752d' : '89fed9be-0b10-4c74-8d30-731592283ea5'
     const redirectUri = `https://${hostname}/oauth-end`
     let last_cached = false // Dirty hack to know if we cached the response or not.
 
@@ -88,7 +88,7 @@ export default {
             'content-type': 'application/x-www-form-urlencoded'
           },
           body: new URLSearchParams({
-            client_id: clientId,
+            client_id: clientID,
             refresh_token,
             grant_type: 'refresh_token',
           }),
@@ -132,7 +132,7 @@ export default {
           'content-type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          client_id: clientId,
+          client_id: clientID,
           code_verifier: challenge.codeVerifier,
           code_challenge_method: 'S256',
           redirect_uri: redirectUri,
@@ -190,7 +190,7 @@ export default {
       api_url.searchParams.set('code_challenge', codeChallenge)
       api_url.searchParams.set('code_challenge_method', codeChallengeMethod)
       api_url.searchParams.set('state', state)
-      api_url.searchParams.set('client_id', clientId)
+      api_url.searchParams.set('client_id', clientID)
       api_url.searchParams.set('redirect_uri', redirectUri)
       api_url.searchParams.set('response_type', 'code')
       // your OAuth integration register with these scopes in the management page
