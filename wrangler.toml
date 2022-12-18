@@ -1,4 +1,4 @@
- name = "airtable-do"
+name = "airtable-do"
 route = { pattern = "*/*", zone_name = "airtable.do" }
 main = "dist/index.mjs"
 usage_model = "unbound"
@@ -9,7 +9,7 @@ services = [
 ]
  
 kv_namespaces = [
-  { binding = "STORAGE", id = "000" }
+  { binding = "STORAGE", id = "d1a248bb6d93447e8437667f8b7a3486" }
 ]
 
 workers_dev = false
