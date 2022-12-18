@@ -46,7 +46,7 @@ export default {
 
     let namespace = pathSegments.shift()
 
-    let config = await env.STORAGE.get(`config:namespaces:${namespace}`, { type: 'json' })
+    let config = await env.STORAGE.get(`config:${namespace}`, { type: 'json' })
 
     const clientID = hostname == 'airtable.do' ? 'b356afa0-f7c6-4dbe-bafe-a738c5b9752d' : '89fed9be-0b10-4c74-8d30-731592283ea5'
     const redirectUri = `https://${hostname}/oauth-end`
@@ -104,7 +104,7 @@ export default {
         config.refresh_token = data.refresh_token
         config.access_token = data.access_token
 
-        await env.STORAGE.put(`config:namespaces:${namespace}`, JSON.stringify(config))
+        await env.STORAGE.put(`config:${namespace}`, JSON.stringify(config))
 
         return await airtable(route, body, options)
       }
@@ -149,9 +149,12 @@ export default {
 
       namespace = challenge.namespace
 
-      await airtable('meta/bases')
+      console.log('Setup complete!')
+      console.log(
+        await airtable('meta/bases')
+      )
 
-      await env.STORAGE.put(`config:namespaces:${challenge.namespace}`, JSON.stringify({
+      await env.STORAGE.put(`config:${challenge.namespace}`, JSON.stringify({
         ...data,
         namespace,
         owner: user.email,
@@ -257,7 +260,7 @@ export default {
           createdAt: new Date().toISOString(),
         }
 
-        await env.STORAGE.put(`config:namespaces:${namespace}`, JSON.stringify({
+        await env.STORAGE.put(`config:${namespace}`, JSON.stringify({
           ...config,
           keys: [...config.keys, key],
         }))
@@ -268,7 +271,7 @@ export default {
       router.get('/:namespace/keys/:keyId/delete', async (req, res) => {
         const { keyId } = req.params
 
-        await env.STORAGE.put(`config:namespaces:${namespace}`, JSON.stringify({
+        await env.STORAGE.put(`config:${namespace}`, JSON.stringify({
           ...config,
           keys: config.keys.filter(key => key.id != keyId),
         }))
