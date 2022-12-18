@@ -192,7 +192,14 @@ export default {
       // Like, i get it, but god damn.
 
       if (!user.email) {
-        return Response.redirect(`https://${hostname}/login`)
+        return json({
+          api,
+          data: {
+            error: 'You need to be logged in to use this API.',
+            login: `https://${hostname}/login`,
+          },
+          user
+        })
       }
 
       // For state and code challenge, we need to generate a random string.
