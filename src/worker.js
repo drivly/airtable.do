@@ -191,7 +191,7 @@ export default {
       // Oh god, Airtable's oAuth is so bad.
       // Like, i get it, but god damn.
 
-      if (!user) {
+      if (!user.email) {
         return Response.redirect(`https://${hostname}/login`)
       }
 
