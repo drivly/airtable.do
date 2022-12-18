@@ -110,7 +110,8 @@ export default {
       }
 
       // Cache the response.
-      const cache_res = new Response(res.body, res)
+      const c = res.clone()
+      const cache_res = new Response(c.body, c)
       cache_res.headers.set('Cache-Control', `public, max-age=${cache_ttl}`)
       ctx.waitUntil(cache.put(cache_key, cache_res.clone()))
 
