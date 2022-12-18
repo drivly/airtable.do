@@ -1,0 +1,26 @@
+{
+  "name": "airtable.do",
+  "version": "1.0.0",
+  "description": "Airtable / GitHub Integration &amp; Sync",
+  "main": "dist/index.mjs",
+  "module": "dist/index.mjs",
+  "scripts": {
+    "build": "esbuild ./src/worker.js --bundle --format=esm --outfile=dist/index.mjs  --loader:.html=text --define:process.env.HMAC_SECRET=\"'$( echo $HMAC_SECRET )'\"",
+    "dev": "npx miniflare@latest --watch",
+    "format": "prettier --write '**/*.{js,css,json,md}'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drivly/airtable.do.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/drivly/airtable.do/issues"
+  },
+  "homepage": "https://github.com/drivly/airtable.do#readme",
+  "dependencies": {
+    "esbuild": "^0.16.7",
+    "itty-router": "^2.6.6"
+  }
+}
