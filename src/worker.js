@@ -2,17 +2,25 @@ import { Router } from 'itty-router'
 
 export const api = {
   icon: '💽',
-  name: 'time.series.do',
-  description: 'Simple time-series storage and analysis',
-  url: 'https://time.series.do/api',
-  type: 'https://apis.do/templates',
+  name: 'airtable.do',
+  description: 'Simple Airtable API, without rate-limits. Includes backups and imports.',
+  url: 'https://airtable.do/api',
+  type: 'https://apis.do/sources',
   endpoints: {
+    claim: `https://airtable.do/:namespace/claim`,
+    listNamespaces: `https://airtable.do/@me`,
+    getNamespaceAndKeys: `https://airtable.do/:namespace`,
+    listBases: `https://airtable.do/:namespace/bases`,
+    getBase: `https://airtable.do/:namespace/bases/:base`,
+    listTables: `https://airtable.do/:namespace/bases/:base/tables`,
+    getTable: `https://airtable.do/:namespace/bases/:base/tables/:table`,
+    listRecords: `https://airtable.do/:namespace/bases/:base/tables/:table/records`,   
   },
-  site: 'https://time.series.do',
-  login: 'https://time.series.do/login',
-  signup: 'https://time.series.do/signup',
-  subscribe: 'https://time.series.do/subscribe',
-  repo: 'https://github.com/drivly/time.series.do',
+  site: 'https://airtable.do',
+  login: 'https://airtable.do/login',
+  signup: 'https://airtable.do/signup',
+  subscribe: 'https://airtable.do/subscribe',
+  repo: 'https://github.com/drivly/airtable.do',
 }
 
 export const gettingStarted = [
@@ -252,6 +260,7 @@ export default {
             createdAt: config.createdAt,
             lastUsed: config.lastUsed,
             owner: config.owner,
+            bases: `https://${hostname}/${namespace}/bases`,
             keys: config.keys.map(key => ({
               ...key,
               deleteKey: `https://${hostname}/${namespace}/keys/${key.id}/delete`
@@ -419,7 +428,9 @@ export default {
 
       return json({
         api,
-        data: records,
+        data: {
+          records
+        },
         user
       })
     })
