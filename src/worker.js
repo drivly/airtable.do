@@ -165,11 +165,27 @@ export default {
         keys: [] // For authorization and sharing data without granting full write access.
       }))
 
+      await env.STORAGE.put(`${user.email}:${namespace}`, '') // For listing namespaces at a later date.
+
       await env.STORAGE.delete(`challenge:${state}`)
 
       return Response.redirect(`https://${hostname}/${namespace}`)
     }
 
+    if (pathname.includes('@me')) {
+      // Get the user's namespaces.
+      const namespaces = await env.STORAGE.list({ prefix: `${user.email}:` })
+
+      return json({
+        api,
+        data: {
+          note: 'These are all the namespaces you have created',
+          namespaces: namespaces.keys.map(key => `https://${hostname}/${key.name.split(':')[1]}`),
+        },
+        user
+      })
+    }
+ 
     if (!config) {
       // Run the setup for this namespace.
       // Oh god, Airtable's oAuth is so bad.
@@ -187,7 +203,7 @@ export default {
 
       const codeChallenge = await hash(codeVerifier)
 
-      const scope = 'data.records:read data.records:write schema.bases:read'
+      const scope = 'data.records:read data.records:write schema.bases:read schema.bases:write' // Scopes allow us to everything we need.
 
       const api_url = new URL(`https://airtable.com/oauth2/v1/authorize`)
 
@@ -197,7 +213,6 @@ export default {
       api_url.searchParams.set('client_id', clientID)
       api_url.searchParams.set('redirect_uri', redirectUri)
       api_url.searchParams.set('response_type', 'code')
-      // your OAuth integration register with these scopes in the management page
       api_url.searchParams.set('scope', scope)
 
       await env.STORAGE.put(
@@ -220,17 +235,6 @@ export default {
 
     // All of our routes to manage and read from this airbase namespace.
     const router = new Router()
-
-    if (!config.keys) {
-      config = {
-        ...config,
-        owner: user.email,
-        createdAt: new Date().toISOString(),
-        lastUsed: new Date().toISOString(),
-        type: 'airtable',
-        keys: [] // For authorization and sharing data without granting full write access.
-      }
-    }
 
     // If the logged in user is the owner of this namespace, we can show them the key interface
     if (config.owner == user.email) {
