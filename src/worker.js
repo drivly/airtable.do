@@ -358,6 +358,87 @@ export default {
       })
     })
 
+    router.all('/:namespace/bases/:baseId/import', async (req, res) => {
+      let body = query.url
+      const { namespace, baseId } = req.params
+
+      if (!body) {
+        if (req.method === 'POST') {
+          body = await req.text()
+        } else {
+          return json({ api, data: { error: 'No body or URL provided. To import to this table, provide either a JSONL body OR a URL to import', code: 'no_body' }, user }, { status: 400 })
+        }
+      } else {
+        body = await fetch(body).then(res => res.text())
+      }
+
+      let header = body.split('\n')[0]
+
+      try {
+        header = JSON.parse(header)
+      } catch (e) {
+        return json({ api, data: { error: 'Invalid JSONL file', code: 'invalid_jsonl' }, user }, { status: 400 })
+      }
+
+      if (!header.headerLine) {
+        return json({ api, data: { error: 'Invalid JSONL file', code: 'invalid_json' }, user }, { status: 400 })
+      }
+
+      // Unpack and create the table described in the header.
+
+      const table = await airtable(`meta/bases/${baseId}/tables`, {
+        name: header.table.name,
+        description: header.table.description,
+        fields: header.table.fields.map(field => {
+          return {
+            name: field.name,
+            options: field.options,
+            type: field.type
+          }
+        })
+      }, {
+        method: 'POST'
+      })
+
+      const tableId = table.id
+
+      const records = body.split('\n').slice(1).filter(Boolean).map(record => JSON.parse(record))
+
+      // Chunk by 10 at a time.
+      const chunks = records.reduce((resultArray, item, index) => {
+        const chunkIndex = Math.floor(index / 10)
+
+        if (!resultArray[chunkIndex]) {
+          resultArray[chunkIndex] = [] // start a new chunk
+        }
+
+        resultArray[chunkIndex].push({ fields: item.fields }) // We only want to import the fields property.
+        
+        return resultArray
+      }, [])
+
+      for (const chunk of chunks) {
+        await airtable(
+          `${baseId}/${tableId}`,
+          {
+            records: chunk
+          },
+          {
+            method: 'POST'
+          }
+        )
+      }
+
+      return json({
+        api,
+        data: {
+          imported: records.length,
+          PITR: header.PITR,
+        },
+        user
+      })
+    })
+
     router.get('/:namespace/bases/:baseId/tables/:tableId', async (req, res) => {
       const { namespace, baseId, tableId } = req.params
 
@@ -429,9 +510,92 @@ export default {
       return json({
         api,
         data: {
+          export: `https://${hostname}/${namespace}/bases/${baseId}/tables/${tableId}/export`,
           records
         },
         user
+      })
+    })
+
+    router.get('/:namespace/bases/:baseId/tables/:tableId/export', async (req, res) => {
+      // Export the table as a JSONL file.
+      // This means that each record is on a new line, and the whole file is valid JSON.
+
+      // We will need to do multiple requests to get all the records.
+
+      const { namespace, baseId, tableId } = req.params
+
+      const strip_id = (record) => {
+        // Recursively strip the ID from the record and all sub-properties.
+        if (typeof record !== 'object') {
+          return record
+        }
+
+        if (Array.isArray(record)) {
+          return record.map(strip_id)
+        }
+        
+        const new_record = { ...record }
+
+        delete new_record.id
+        delete new_record.createdTime
+
+        for (const [key, value] of Object.entries(new_record)) {
+          new_record[key] = strip_id(value)
+        }
+
+        return new_record
+      }
+
+      const meta = await airtable(`meta/bases/${baseId}/tables`)
+      const table_meta = meta.tables.find(table => table.id === tableId)
+
+      table_meta.name = table_meta.name + '-PITR-' + new Date().toISOString().split('T')[0] 
+
+      let output = JSON.stringify({
+        headerLine: true,
+        PITR: new Date().toISOString(),
+        backupCreatedBy: user.email || keyID,
+        table: strip_id(table_meta),
+      }) + '\n'
+
+      let offset = ''
+      const pageSize = 100
+      let chunk = 0
+      let total = 0
+
+      while (true) {
+        console.log(`@ Chunk: ${chunk}, Total records fetched: ${total}`)
+        chunk++
+        const data = await airtable(`${baseId}/${tableId}?${ new URLSearchParams(Object.assign({ pageSize, offset }, req.query)).toString() } `,
+          undefined,
+          {
+            cache_ttl: 0 // Disable the cache since this route will change nearly every time. 
+          }
+        )
+
+        offset = data.offset
+        const records = data.records
+
+        if (data.error) {
+          console.log('END ITTERATION', data.error)
+          break
+        }
+
+        total += records.length
+
+        for (const record of records) {
+          output += JSON.stringify(strip_id(record)) + '\n'
+        }
+
+        //await new Promise(resolve => setTimeout(resolve, 100)) // Wait a second to avoid rate limiting.
+      }
+
+      return new Response(output, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="${tableId}-${new Date().toISOString().split('T')[0]}.jsonl"`
+        }
       })
     })
 
@@ -450,8 +614,6 @@ export default {
           method: 'POST'
         }
       )
-
-      
 
       return json({
         api,
