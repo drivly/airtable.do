@@ -405,10 +405,11 @@ export default {
         items,
       })
 
-      const tags = [{ name: 'Meta', description: 'A list of routes for describing or managing the base itself' }] + tables.map(table => ({
+      const tags = [{ name: 'Meta', description: 'A list of routes for describing or managing the base itself' }]
+      tags.concat(tables.map(table => ({
         name: table.name,
         description: table.description,
-      }))
+      })))
 
       paths[`/${namespace}/bases/${baseId}/tables`] = {
         get: {
