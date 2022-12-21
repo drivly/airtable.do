@@ -158,11 +158,6 @@ export default {
 
       namespace = challenge.namespace
 
-      console.log('Setup complete!')
-      console.log(
-        await airtable('meta/bases')
-      )
-
       await env.STORAGE.put(`config:${challenge.namespace}`, JSON.stringify({
         ...data,
         namespace,
@@ -276,7 +271,7 @@ export default {
         const { readOnly } = query
 
         const key = {
-          id: gen_id(12) + (readOnly ? '-ro' : '-rw'),
+          id: gen_id(12) + (readOnly == 'true' ? '-ro' : '-rw'),
           readOnly: readOnly == 'true',
           createdAt: new Date().toISOString(),
         }
