@@ -353,6 +353,248 @@ export default {
       })
     })
 
+    router.get('/:namespace/bases/:baseId/openapi', async (req, res) => {
+      const { namespace, baseId } = req.params
+
+      const { tables } = await airtable(`meta/bases/${baseId}/tables`)
+
+      const paths = {}
+
+      const record_type_to_openapi = (record_type) => {
+        const types =  {
+          singleLineText: 'string',
+          multipleLineText: 'string',
+          phoneNumber: 'integer',
+          email: 'string',
+          multipleRecordLinks: 'array',
+          singleRecordLink: 'string',
+          number: 'integer',
+          checkbox: 'boolean',
+          date: 'string',
+          formula: 'string',
+          rollup: 'string',
+          attachment: 'string',
+          multipleAttachment: 'array',
+        }
+
+        if (!types[record_type]) {
+          return { type: 'string' }
+        }
+
+        const ret = {
+          type: types[record_type]
+        }
+
+        if (record_type == 'multipleRecordLinks') {
+          ret.items = {
+            type: 'string'
+          }
+        }
+
+        return ret
+      }
+
+      const object = (props, opt) => ({
+        type: 'object',
+        properties: props,
+        ...(opt || {})
+      })
+
+      const arr = (items) => ({
+        type: 'array',
+        items,
+      })
+
+      const tags = [{ name: 'Meta', description: 'A list of routes for describing or managing the base itself' }] + tables.map(table => ({
+        name: table.name,
+        description: table.description,
+      }))
+
+      paths[`/${namespace}/bases/${baseId}/tables`] = {
+        get: {
+          tags: ['Meta'],
+          summary: 'Get all tables',
+          responses: {
+            200: {
+              description: 'A list of tables',
+              content: {
+                'application/json': {
+                  schema: object({
+                    api: object({}, { example: api }),
+                    data: object({
+                      tables: arr(object({
+                        id: {
+                          type: 'string',
+                          description: 'The ID of the table',
+                        },
+                        name: {
+                          type: 'string',
+                          description: 'The name of the table',
+                        },
+                        link: {
+                          type: 'string',
+                          description: 'The link to the table',
+                        },
+                      })),
+                    }),
+                  }),
+                },
+              },
+            },
+          },
+        },
+      }
+
+      paths[`/${namespace}/bases/${baseId}/import`] = {
+        post: {
+          tags: ['Meta'],
+          summary: 'Import an exported Airtable table.',
+          requestBody: {
+            // A JSONL body or a URL pointing to a JSONL file
+            content: {
+              'application/json': {
+                type: 'string',
+              },
+              'text/plain': {
+                type: 'string',
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'The table has been imported',
+              content: {
+                'application/json': {
+                  schema: object({
+                    api: object({}, { example: api }),
+                    data: object({
+                      success: {
+                        type: 'boolean',
+                        description: 'Whether the import was successful',
+                      },
+                    }),
+                  }),
+                },
+              },
+            },
+          },
+        }
+      }
+
+      for (const table of tables) {
+        const tbl = tables.find(t => t.id == table.id)
+        const { records } = await airtable(`bases/${baseId}/tables/${table.id}/records`)
+
+        // Update the above path to use the new object function
+        paths[`/${namespace}/bases/${baseId}/tables/${table.id}/records`] = {
+          get: {
+            tags: [table.name],
+            summary: `Get all records from the ${table.name} table`,
+            responses: {
+              200: {
+                description: 'A list of records',
+                content: {
+                  'application/json': {
+                    schema: object({
+                      api: object({}, { example: api }),
+                      data: object({
+                        records: arr(object({
+                          id: {
+                            type: 'string',
+                          },
+                          fields: object(tbl.fields.reduce((acc, field) => ({
+                            ...acc,
+                            [field.name]: record_type_to_openapi(field.type),
+                          }), {})),
+                        })),
+                      }),
+                      user: object({}, { example: user }),
+                    }),
+                  },
+                },
+              },
+            },
+          },
+          post: {
+            tags: [table.name],
+            summary: `Create a new record in the ${table.name} table`,
+            requestBody: {
+              content: {
+                'application/json': {
+                  schema: object({
+                    fields: object(tbl.fields.reduce((acc, field) => ({
+                      ...acc,
+                      [field.name]: record_type_to_openapi(field.type),
+                    }), {})),
+                  }),
+                },
+              },
+            },
+            responses: {
+              200: {
+                description: 'A list of records',
+                content: {
+                  'application/json': {
+                    schema: object({
+                      api: object({}, { example: api }),
+                      data: object({
+                        records: arr(object({
+                          id: {
+                            type: 'string',
+                          },
+                          fields: object(tbl.fields.reduce((acc, field) => ({
+                            ...acc,
+                            [field.name]: record_type_to_openapi(field.type),
+                          }), {})),
+                        })),
+                      }),
+                      user: object({}, { example: user }),
+                    }),
+                  },
+                },
+              },
+            },
+          },
+        }
+
+        paths[`/${namespace}/bases/${baseId}/tables/${table.id}/export`] = {
+          get: {
+            tags: [table.name],
+            summary: `Export all records from the ${table.name} table`,
+            responses: {
+              200: {
+                description: 'A JSONL file containing the point-in-time snapshot of the table',
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'string',
+                      format: 'binary'
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }
+      }
+
+      // Convert our paths to OpenAPI 3.0.0
+      return json({
+        openapi: '3.0.0',
+        info: {
+          title: `Airtable API for ${config.name}`,
+          version: '1.0.0',
+        },
+        servers: [
+          {
+            url: `https://${hostname}/${namespace}/`,
+          },
+        ],
+        tags,
+        paths
+      })
+    })
+
     router.all('/:namespace/bases/:baseId/import', async (req, res) => {
       let body = query.url
       const { namespace, baseId } = req.params
